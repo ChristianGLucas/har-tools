@@ -8941,7 +8941,8 @@ ok: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
 error: jspb.Message.getFieldWithDefault(msg, 2, ""),
 urlsList: jspb.Message.toObjectList(msg.getUrlsList(),
     proto.christiangeorgelucas.har_tools.EntryUrl.toObject, includeInstance),
-count: jspb.Message.getFieldWithDefault(msg, 4, 0)
+count: jspb.Message.getFieldWithDefault(msg, 4, 0),
+truncated: jspb.Message.getBooleanFieldWithDefault(msg, 5, false)
   };
 
   if (includeInstance) {
@@ -8994,6 +8995,10 @@ proto.christiangeorgelucas.har_tools.ExtractUrlsResult.deserializeBinaryFromRead
     case 4:
       var value = /** @type {number} */ (reader.readInt32());
       msg.setCount(value);
+      break;
+    case 5:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setTruncated(value);
       break;
     default:
       reader.skipField();
@@ -9050,6 +9055,13 @@ proto.christiangeorgelucas.har_tools.ExtractUrlsResult.serializeBinaryToWriter =
   if (f !== 0) {
     writer.writeInt32(
       4,
+      f
+    );
+  }
+  f = message.getTruncated();
+  if (f) {
+    writer.writeBool(
+      5,
       f
     );
   }
@@ -9145,6 +9157,24 @@ proto.christiangeorgelucas.har_tools.ExtractUrlsResult.prototype.getCount = func
  */
 proto.christiangeorgelucas.har_tools.ExtractUrlsResult.prototype.setCount = function(value) {
   return jspb.Message.setProto3IntField(this, 4, value);
+};
+
+
+/**
+ * optional bool truncated = 5;
+ * @return {boolean}
+ */
+proto.christiangeorgelucas.har_tools.ExtractUrlsResult.prototype.getTruncated = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 5, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.christiangeorgelucas.har_tools.ExtractUrlsResult} returns this
+ */
+proto.christiangeorgelucas.har_tools.ExtractUrlsResult.prototype.setTruncated = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 5, value);
 };
 
 

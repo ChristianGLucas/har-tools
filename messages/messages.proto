@@ -318,6 +318,9 @@ message ExtractUrlsResult {
   string error = 2;
   repeated EntryUrl urls = 3;
   int32 count = 4;
+  // True when the document has more entries than were scanned (a per-node
+  // input-size bound).
+  bool truncated = 5;
 }
 
 message ComputeStatsResult {

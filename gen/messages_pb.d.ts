@@ -1142,6 +1142,9 @@ export class ExtractUrlsResult extends jspb.Message {
   getCount(): number;
   setCount(value: number): void;
 
+  getTruncated(): boolean;
+  setTruncated(value: boolean): void;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ExtractUrlsResult.AsObject;
   static toObject(includeInstance: boolean, msg: ExtractUrlsResult): ExtractUrlsResult.AsObject;
@@ -1158,6 +1161,7 @@ export namespace ExtractUrlsResult {
     error: string,
     urlsList: Array<EntryUrl.AsObject>,
     count: number,
+    truncated: boolean,
   }
 }
 

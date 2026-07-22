@@ -22,6 +22,7 @@ export function extractUrls(ax: AxiomContext, input: HarDocument): ExtractUrlsRe
   out.setError(parsed.error);
   if (!parsed.ok) return out;
 
+  const truncated = parsed.entriesRaw.length > MAX_ENTRIES_LIST;
   const slice = parsed.entriesRaw.slice(0, MAX_ENTRIES_LIST);
   const urls = slice.map((eRaw, i) => {
     const e = (eRaw ?? {}) as Record<string, unknown>;
@@ -33,5 +34,6 @@ export function extractUrls(ax: AxiomContext, input: HarDocument): ExtractUrlsRe
   });
   out.setUrlsList(urls);
   out.setCount(urls.length);
+  out.setTruncated(truncated);
   return out;
 }
