@@ -1,0 +1,391 @@
+// This file defines the data contracts (messages) for your Axiom package.
+// Every node's --input and --output refers to a message defined here.
+//
+// Run `axiom create message <Name>` to scaffold a new message below.
+// Run `axiom generate` to compile these definitions into language bindings in gen/.
+//
+// DOCUMENTATION
+//   Comments written directly above a message or field declaration are extracted
+//   automatically at publish time and shown in the Axiom registry as documentation.
+//   Write your descriptions there — no separate doc files needed.
+//
+//   Leading comment  (no blank line before the declaration) → registry description ✓
+//   Detached comment (blank line before the declaration)    → ignored by registry  ✗
+//
+// This file is yours to edit. Axiom only appends new message blocks — it never
+// overwrites or removes content you have written.
+
+syntax = "proto3";
+
+package christiangeorgelucas.har_tools;
+
+// A raw HAR (HTTP Archive, HAR 1.2) document supplied by the caller — the
+// input to every read-only node. The document is always caller-supplied
+// JSON text; nodes never fetch, capture, or cache one, and never read the
+// wall clock — every timestamp/duration comes verbatim from the document.
+message HarDocument {
+  // Raw HAR JSON text, as exported by a browser devtools panel, mitmproxy,
+  // curl --dump-header + a converter, etc.
+  string text = 1;
+}
+
+// Request for a node that operates on one entry by its zero-based index
+// into log.entries.
+message EntryIndexRequest {
+  string text = 1;
+  int32 index = 2;
+}
+
+// Request for filtering entries by HTTP response status. `status_filter`
+// accepts either an exact 3-digit code ("404") or a status-class shorthand
+// ("2xx", "3xx", "4xx", "5xx", "1xx").
+message StatusFilterRequest {
+  string text = 1;
+  string status_filter = 2;
+}
+
+// Request for filtering entries by response MIME type. `mime_type` matches
+// case-insensitively: a value ending in "/" (e.g. "image/") matches the
+// whole family; any other value must match the full type exactly (e.g.
+// "application/json").
+message MimeTypeFilterRequest {
+  string text = 1;
+  string mime_type = 2;
+}
+
+// Request for filtering entries by request host. `domain` is matched
+// case-insensitively against the entry's request URL host, exactly (no
+// wildcarding, no subdomain expansion).
+message DomainFilterRequest {
+  string text = 1;
+  string domain = 2;
+}
+
+// Request naming one header across entries. `direction` is one of
+// "request", "response", or "" (both, the default).
+message HeaderValueRequest {
+  string text = 1;
+  string header_name = 2;
+  string direction = 3;
+}
+
+// Request for the top-N entries by a sort dimension. `sort_by` is "time"
+// (entry.time, the default) or "size" (response content.size). `limit`
+// defaults to 10 when <= 0.
+message TopNRequest {
+  string text = 1;
+  int32 limit = 2;
+  string sort_by = 3;
+}
+
+// One HTTP header name/value pair, verbatim from the HAR document.
+message Header {
+  string name = 1;
+  string value = 2;
+}
+
+// One query-string parameter, verbatim from the HAR document.
+message QueryParam {
+  string name = 1;
+  string value = 2;
+}
+
+// One cookie, from either a request's `cookies` array or a response's.
+message CookieInfo {
+  string name = 1;
+  string value = 2;
+  string domain = 3;
+  string path = 4;
+  // The cookie's declared expiry, verbatim as a string (HAR stores it as an
+  // ISO 8601 date-time or is absent for a session cookie) — never parsed or
+  // reformatted, never generated.
+  string expires = 5;
+  bool http_only = 6;
+  bool secure = 7;
+  string same_site = 8;
+}
+
+// One posted form/multipart parameter.
+message PostDataParam {
+  string name = 1;
+  string value = 2;
+  string file_name = 3;
+  string content_type = 4;
+}
+
+// A request body, when present.
+message PostDataInfo {
+  string mime_type = 1;
+  // Raw body text. Capped; see `text_truncated`.
+  string text = 2;
+  bool text_truncated = 3;
+  repeated PostDataParam params = 4;
+}
+
+// A response body's metadata (and a capped text preview).
+message ContentInfo {
+  int64 size = 1;
+  int64 compression = 2;
+  string mime_type = 3;
+  // Body text preview, capped; see `text_truncated`. HAR spec allows this to
+  // be base64-encoded (binary bodies) — `encoding` says which.
+  string text = 4;
+  bool text_truncated = 5;
+  // "base64" when `text` is base64-encoded binary content, else "".
+  string encoding = 6;
+}
+
+// One request, fully expanded.
+message RequestInfo {
+  int32 index = 1;
+  string method = 2;
+  string url = 3;
+  string http_version = 4;
+  repeated Header headers = 5;
+  repeated QueryParam query_string = 6;
+  repeated CookieInfo cookies = 7;
+  PostDataInfo post_data = 8;
+  bool has_post_data = 9;
+  int64 headers_size = 10;
+  int64 body_size = 11;
+}
+
+// One response, fully expanded.
+message ResponseInfo {
+  int32 index = 1;
+  int32 status = 2;
+  string status_text = 3;
+  string http_version = 4;
+  repeated Header headers = 5;
+  repeated CookieInfo cookies = 6;
+  ContentInfo content = 7;
+  string redirect_url = 8;
+  int64 headers_size = 9;
+  int64 body_size = 10;
+}
+
+// The HAR 1.2 `timings` object for one entry: every value is either a
+// non-negative millisecond duration or -1 (HAR's "not applicable"
+// sentinel), read verbatim — never computed.
+message TimingsInfo {
+  double blocked = 1;
+  double dns = 2;
+  double connect = 3;
+  double send = 4;
+  double wait = 5;
+  double receive = 6;
+  double ssl = 7;
+}
+
+// A lightweight per-entry summary: method + URL + response status + time.
+// The shape returned by every list/filter node.
+message EntrySummary {
+  int32 index = 1;
+  string started_date_time = 2;
+  string method = 3;
+  string url = 4;
+  int32 status = 5;
+  double time = 6;
+}
+
+// One fully-expanded entry: request, response, and timing breakdown.
+message FullEntry {
+  int32 index = 1;
+  string pageref = 2;
+  string started_date_time = 3;
+  double time = 4;
+  RequestInfo request = 5;
+  ResponseInfo response = 6;
+  TimingsInfo timings = 7;
+  string server_ip_address = 8;
+  string connection = 9;
+  string comment = 10;
+}
+
+// One `log.pages[]` entry.
+message PageInfo {
+  string id = 1;
+  string title = 2;
+  string started_date_time = 3;
+  double on_content_load = 4;
+  double on_load = 5;
+  string comment = 6;
+}
+
+// `log.creator` (and, identically shaped, `log.browser`).
+message CreatorInfo {
+  string name = 1;
+  string version = 2;
+  string comment = 3;
+}
+
+// One tally entry for a summary breakdown (e.g. status-class -> count).
+message CountEntry {
+  string key = 1;
+  int32 count = 2;
+}
+
+// ---- Node results ----
+
+// ParseSummary: top-level log metadata without expanding every entry.
+message ParseSummaryResult {
+  bool ok = 1;
+  string error = 2;
+  string har_version = 3;
+  CreatorInfo creator = 4;
+  string browser_name = 5;
+  string browser_version = 6;
+  int32 page_count = 7;
+  int32 entry_count = 8;
+}
+
+message ListEntriesResult {
+  bool ok = 1;
+  string error = 2;
+  repeated EntrySummary entries = 3;
+  int32 count = 4;
+  bool truncated = 5;
+}
+
+message GetEntryResult {
+  bool ok = 1;
+  string error = 2;
+  FullEntry entry = 3;
+}
+
+message ExtractRequestsResult {
+  bool ok = 1;
+  string error = 2;
+  repeated RequestInfo requests = 3;
+  int32 count = 4;
+  bool truncated = 5;
+}
+
+message ExtractResponsesResult {
+  bool ok = 1;
+  string error = 2;
+  repeated ResponseInfo responses = 3;
+  int32 count = 4;
+  bool truncated = 5;
+}
+
+// One entry's timing breakdown, correlated back to its index/URL.
+message EntryTimings {
+  int32 index = 1;
+  string url = 2;
+  TimingsInfo timings = 3;
+}
+
+message ExtractTimingsResult {
+  bool ok = 1;
+  string error = 2;
+  repeated EntryTimings timings = 3;
+  int32 count = 4;
+  bool truncated = 5;
+}
+
+message ExtractPagesResult {
+  bool ok = 1;
+  string error = 2;
+  repeated PageInfo pages = 3;
+  int32 count = 4;
+}
+
+// One distinct host and how many entries targeted it.
+message DomainCount {
+  string domain = 1;
+  int32 count = 2;
+}
+
+message ExtractDomainsResult {
+  bool ok = 1;
+  string error = 2;
+  repeated DomainCount domains = 3;
+  int32 count = 4;
+  // True when the document has more entries than were scanned to build this
+  // inventory (a per-node input-size bound).
+  bool truncated = 5;
+}
+
+// One entry's request URL, correlated back to its index.
+message EntryUrl {
+  int32 index = 1;
+  string url = 2;
+}
+
+message ExtractUrlsResult {
+  bool ok = 1;
+  string error = 2;
+  repeated EntryUrl urls = 3;
+  int32 count = 4;
+}
+
+message ComputeStatsResult {
+  bool ok = 1;
+  string error = 2;
+  int32 entry_count = 3;
+  int64 total_transfer_size = 4;
+  double total_time = 5;
+  repeated CountEntry count_by_status_class = 6;
+  repeated CountEntry count_by_mime_type = 7;
+  // The 3 slowest entries by entry.time, descending.
+  repeated EntrySummary slowest = 8;
+  // True when the document has more entries than were scanned to compute
+  // these aggregates (a per-node input-size bound), so the totals reflect
+  // only the first entries scanned.
+  bool truncated = 9;
+}
+
+// One cookie set by one response, correlated back to its entry.
+message EntryCookie {
+  int32 index = 1;
+  string url = 2;
+  CookieInfo cookie = 3;
+}
+
+message ExtractCookiesResult {
+  bool ok = 1;
+  string error = 2;
+  repeated EntryCookie cookies = 3;
+  int32 count = 4;
+  // True when the document has more entries than were scanned (a per-node
+  // input-size bound).
+  bool truncated = 5;
+}
+
+// One occurrence of the requested header on one entry.
+message HeaderValueEntry {
+  int32 index = 1;
+  // "request" or "response" — which side this occurrence was found on.
+  string direction = 2;
+  string value = 3;
+}
+
+message ExtractHeaderValuesResult {
+  bool ok = 1;
+  string error = 2;
+  repeated HeaderValueEntry values = 3;
+  int32 count = 4;
+  // True when the document has more entries than were scanned (a per-node
+  // input-size bound).
+  bool truncated = 5;
+}
+
+message DetectHeaderPresenceResult {
+  bool ok = 1;
+  string error = 2;
+  repeated EntrySummary matches = 3;
+  int32 count = 4;
+  // Number of entries actually scanned (may be less than the document's
+  // true entry count under the per-node input-size bound; see `truncated`).
+  int32 total_entries = 5;
+  bool truncated = 6;
+}
+
+message ValidateHarResult {
+  bool ok = 1;
+  string error = 2;
+  bool valid = 3;
+  repeated string issues = 4;
+  string har_version = 5;
+}

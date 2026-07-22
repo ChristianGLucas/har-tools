@@ -1,0 +1,201 @@
+name: christiangeorgelucas/har-tools
+version: 0.1.0
+language: typescript
+description: >-
+  Deterministic, HAR-SEMANTIC parsing and inspection of HTTP Archive (HAR
+  1.2) files — the JSON format browsers' devtools, mitmproxy, and CI
+  performance tooling export to capture a session's network traffic.
+  Distinct from generic JSON tooling (dataformat-tools, json-schema-tools),
+  a single raw HTTP wire-message parser (http-message-tools), URL parsing
+  (url-tools), and plaintext access-log parsing (weblog-tools): this package
+  understands the HAR document's own structure — log, creator/browser,
+  pages, and the entries array of paired request/response captures with
+  timing breakdowns — and pulls out exactly what a web-performance/
+  debugging/QA agent needs: a summary overview, the full entry list,
+  single-entry expansion, bulk request/response/timing/page/cookie
+  extraction, a network inventory (domains, URLs), three independent filter
+  dimensions (status, MIME type, domain), a named-header value/presence
+  scan across every entry, ranked slowest/largest entries, aggregate stats,
+  and structural validation against the HAR 1.2 JSON Schema (the
+  ahmadnassri/har-schema definitions plus ajv). All HAR-domain extraction
+  is this package's own code — HAR is JSON, not an algorithmically hard
+  format, so no wrapped parser library is warranted for it; only the
+  structural-validation node defers to a library, because JSON Schema
+  validation genuinely is the library's job. The HAR is always
+  caller-supplied text — no network, no browser, no wall-clock, no
+  randomness; every field is read verbatim from the document, never
+  generated, and output ordering is always stable (entry order, or an
+  explicit sort with an index tiebreak). Input is bounded (3 MiB text, a
+  pre-parse nesting-depth guard, and per-node caps on entries/body-text
+  processed and returned, comfortably inside Axiom's ~4 MiB node transport
+  limit) and a malformed, oversized, or structurally-invalid HAR returns a
+  structured error instead of a crash.
+author: Christian George Lucas
+license: MIT
+tags:
+    - har
+    - http-archive
+    - network
+    - performance
+    - devtools
+    - web-performance
+    - debugging
+    - qa
+    - waterfall
+    - json
+nodes:
+    - name: ParseSummary
+      input: HarDocument
+      output: ParseSummaryResult
+      description: >-
+        Parse a HAR document's top-level metadata without expanding every
+        entry: the declared HAR version, `log.creator` (name/version),
+        `log.browser` (name/version, when present), page count, and entry
+        count. The fast first call to characterize an unfamiliar capture.
+    - name: ListEntries
+      input: HarDocument
+      output: ListEntriesResult
+      description: >-
+        List every captured entry as a lightweight summary: index, start
+        time, request method, request URL, response status, and total time
+        — the shape every filter/sort node in this package also returns.
+        Capped at 3000 entries; `truncated` is true if the document
+        declared more.
+    - name: GetEntry
+      input: EntryIndexRequest
+      output: GetEntryResult
+      description: >-
+        Expand a single entry, by its zero-based index into `log.entries`,
+        into its full request, response, and timing breakdown. An
+        out-of-range index returns a structured error naming the valid
+        range rather than a truncated/empty entry.
+    - name: ExtractRequests
+      input: HarDocument
+      output: ExtractRequestsResult
+      description: >-
+        Extract every request in full: method, URL, HTTP version, headers,
+        query-string parameters, cookies, and post body (when present, with
+        a capped/truncatable text preview). Capped at 500 entries (request
+        detail is heavier than a summary); `truncated` signals a larger
+        document.
+    - name: ExtractResponses
+      input: HarDocument
+      output: ExtractResponsesResult
+      description: >-
+        Extract every response in full: status, status text, HTTP version,
+        headers, cookies, redirect URL, and content metadata (MIME type,
+        size, and a capped/truncatable text preview — response bodies can
+        be large or base64-encoded binary, so the preview is bounded and
+        `content.text_truncated`/`encoding` say when and how). Capped at
+        500 entries; `truncated` signals a larger document.
+    - name: ExtractTimings
+      input: HarDocument
+      output: ExtractTimingsResult
+      description: >-
+        The core performance node: extract the HAR `timings` breakdown
+        (blocked/dns/connect/send/wait/receive/ssl, in milliseconds) for
+        every entry, correlated back to its index and URL. Values are read
+        verbatim, including HAR's -1 "not applicable" sentinel — never
+        computed or re-derived. Capped at 3000 entries; `truncated` signals
+        a larger document.
+    - name: ExtractPages
+      input: HarDocument
+      output: ExtractPagesResult
+      description: >-
+        Extract every `log.pages[]` entry: id, title, start time, and page
+        timings (onContentLoad/onLoad, milliseconds from page start, HAR's
+        -1 sentinel when not recorded). Empty (not an error) for a HAR with
+        no page grouping.
+    - name: ExtractDomains
+      input: HarDocument
+      output: ExtractDomainsResult
+      description: >-
+        The network-inventory node: every distinct host contacted, with how
+        many entries targeted it, sorted alphabetically by host for
+        deterministic output. Malformed request URLs are skipped, not
+        fatal.
+    - name: ExtractUrls
+      input: HarDocument
+      output: ExtractUrlsResult
+      description: >-
+        Extract every request URL in entry order, each correlated back to
+        its index (not deduplicated — use ExtractDomains for a deduplicated
+        host inventory). Capped at 3000 entries; `count` reflects the
+        returned (possibly truncated) set.
+    - name: FilterByStatus
+      input: StatusFilterRequest
+      output: ListEntriesResult
+      description: >-
+        The error-finding node: return only entries whose response status
+        matches `status_filter` — an exact 3-digit code ("404") or a
+        status-class shorthand ("4xx", "5xx", etc). An entry with no
+        recorded response (status 0) never matches. An invalid filter
+        string returns a structured error.
+    - name: FilterByMimeType
+      input: MimeTypeFilterRequest
+      output: ListEntriesResult
+      description: >-
+        Return only entries whose response `content.mimeType` matches
+        `mime_type` — a trailing-slash value ("image/") matches the whole
+        family case-insensitively, any other value must match the full
+        type exactly (e.g. "application/json").
+    - name: FilterByDomain
+      input: DomainFilterRequest
+      output: ListEntriesResult
+      description: >-
+        Return only entries whose request URL host equals `domain`
+        (case-insensitive exact match; no subdomain expansion or
+        wildcarding — chain with ExtractDomains to discover the exact hosts
+        present first).
+    - name: ComputeStats
+      input: HarDocument
+      output: ComputeStatsResult
+      description: >-
+        Pure aggregation over the parsed entries: total entry count, total
+        response transfer size (sum of content.size), total time (sum of
+        entry.time), counts by response status class, counts by response
+        MIME type, and the 3 slowest entries by entry.time. All figures are
+        computed once over a single pass; nothing is fetched or estimated.
+    - name: ExtractCookies
+      input: HarDocument
+      output: ExtractCookiesResult
+      description: >-
+        Extract every cookie SET across all responses (each response's
+        `cookies` array), correlated back to the entry index and URL that
+        set it. Request-carried cookies are not included here — use
+        ExtractRequests to see cookies sent.
+    - name: ExtractHeaderValues
+      input: HeaderValueRequest
+      output: ExtractHeaderValuesResult
+      description: >-
+        Extract every value of one named header (case-insensitive, e.g.
+        "Cache-Control") across every entry's request and/or response
+        headers (`direction`: "request" | "response" | "" for both),
+        correlated back to the entry index and which side it was found on.
+        An entry with the header repeated emits one value per occurrence.
+    - name: ExtractSlowest
+      input: TopNRequest
+      output: ListEntriesResult
+      description: >-
+        Return the top `limit` entries (default 10) ranked by `sort_by` —
+        "time" (entry.time, the default) or "size" (response
+        content.size) — descending, with ties broken by ascending entry
+        index for determinism. `limit` <= 0 defaults to 10.
+    - name: DetectHeaderPresence
+      input: HeaderValueRequest
+      output: DetectHeaderPresenceResult
+      description: >-
+        Return every entry that has one named header present at all
+        (case-insensitive, `direction`: "request" | "response" | "" for
+        both) — the value is not inspected, only presence. `total_entries`
+        gives the denominator for the match count.
+    - name: ValidateHar
+      input: HarDocument
+      output: ValidateHarResult
+      description: >-
+        Validate the document against the HAR 1.2 JSON Schema (the
+        ahmadnassri/har-schema definitions, via ajv). `valid` is false and
+        `issues` lists every schema violation (JSON-pointer path + message)
+        for a structurally non-conformant document; a document that isn't
+        even valid JSON returns ok=false with a parse error instead
+        (validation never runs on unparseable input).
