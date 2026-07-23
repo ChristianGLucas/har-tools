@@ -3,7 +3,7 @@
 Deterministic, HAR-SEMANTIC parsing and inspection of **HTTP Archive (HAR 1.2)**
 files — the JSON format browsers' devtools, mitmproxy, and CI performance tooling
 export to capture a session's network traffic. Built for the
-[Axiom](https://axiom.co) marketplace, handle `christiangeorgelucas`.
+[Axiom](https://axiomide.com) marketplace, handle `christiangeorgelucas`.
 
 Distinct from generic JSON tooling (`dataformat-tools`, `json-schema-tools`), a
 single raw HTTP wire-message parser (`http-message-tools`), URL parsing
