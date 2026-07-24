@@ -1,7 +1,6 @@
 import { HarDocument, ExtractDomainsResult, DomainCount } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
 import { parseHar, hostOf } from './lib/harParse';
-import { MAX_ENTRIES_LIST } from './lib/limits';
 
 function str(v: unknown): string {
   return typeof v === 'string' ? v : '';
@@ -21,10 +20,8 @@ export function extractDomains(ax: AxiomContext, input: HarDocument): ExtractDom
   out.setError(parsed.error);
   if (!parsed.ok) return out;
 
-  const truncated = parsed.entriesRaw.length > MAX_ENTRIES_LIST;
-  const slice = parsed.entriesRaw.slice(0, MAX_ENTRIES_LIST);
   const counts = new Map<string, number>();
-  for (const eRaw of slice) {
+  for (const eRaw of parsed.entriesRaw) {
     const e = (eRaw ?? {}) as Record<string, unknown>;
     const req = (e.request ?? {}) as Record<string, unknown>;
     const host = hostOf(str(req.url));
@@ -42,6 +39,5 @@ export function extractDomains(ax: AxiomContext, input: HarDocument): ExtractDom
     });
   out.setDomainsList(domains);
   out.setCount(domains.length);
-  out.setTruncated(truncated);
   return out;
 }

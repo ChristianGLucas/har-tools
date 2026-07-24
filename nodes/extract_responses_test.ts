@@ -2,7 +2,6 @@ import { HarDocument } from '../gen/messages_pb';
 import { extractResponses } from './extract_responses';
 import { testContext } from './testdata/testContext';
 import { VALID_HAR, VALID_HAR_ENTRY_COUNT } from './testdata/fixtures';
-import { MAX_BODY_TEXT_CHARS } from './lib/limits';
 
 describe('ExtractResponses', () => {
   it('extracts every response with status, headers, cookies, and content metadata', () => {
@@ -24,8 +23,8 @@ describe('ExtractResponses', () => {
     expect(responses[3].getStatusText()).toBe('Not Found');
   });
 
-  it('caps a large response body preview and flags it truncated', () => {
-    const bigText = 'x'.repeat(MAX_BODY_TEXT_CHARS + 500);
+  it('returns a large response body in full, untruncated (no payload-size limit)', () => {
+    const bigText = 'x'.repeat(25_000);
     const har = JSON.stringify({
       log: {
         version: '1.2',
@@ -46,7 +45,7 @@ describe('ExtractResponses', () => {
     const result = extractResponses(testContext, input);
     expect(result.getOk()).toBe(true);
     const content = result.getResponsesList()[0].getContent()!;
-    expect(content.getTextTruncated()).toBe(true);
-    expect(content.getText().length).toBe(MAX_BODY_TEXT_CHARS);
+    expect(content.getTextTruncated()).toBe(false);
+    expect(content.getText().length).toBe(bigText.length);
   });
 });

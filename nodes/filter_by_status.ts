@@ -2,7 +2,6 @@ import { StatusFilterRequest, ListEntriesResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
 import { parseHar, buildFilterRows, parseStatusFilter } from './lib/harParse';
 import { entrySummaryToMsg } from './lib/mappers';
-import { MAX_ENTRIES_LIST } from './lib/limits';
 
 /**
  * The error-finding node: return only entries whose response status matches
@@ -27,10 +26,9 @@ export function filterByStatus(ax: AxiomContext, input: StatusFilterRequest): Li
     return out;
   }
 
-  const { rows, truncated } = buildFilterRows(parsed.entriesRaw, MAX_ENTRIES_LIST);
+  const rows = buildFilterRows(parsed.entriesRaw);
   const matched = rows.filter((r) => matcher.matches(r.summary.status)).map((r) => entrySummaryToMsg(r.summary));
   out.setEntriesList(matched);
   out.setCount(matched.length);
-  out.setTruncated(truncated);
   return out;
 }

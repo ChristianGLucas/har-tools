@@ -116,19 +116,23 @@ message PostDataParam {
 // A request body, when present.
 message PostDataInfo {
   string mime_type = 1;
-  // Raw body text. Capped; see `text_truncated`.
+  // Raw body text, in full (no truncation — the platform bounds payload
+  // size, not this node). `text_truncated` is reserved for wire
+  // compatibility and always false.
   string text = 2;
   bool text_truncated = 3;
   repeated PostDataParam params = 4;
 }
 
-// A response body's metadata (and a capped text preview).
+// A response body's metadata and text.
 message ContentInfo {
   int64 size = 1;
   int64 compression = 2;
   string mime_type = 3;
-  // Body text preview, capped; see `text_truncated`. HAR spec allows this to
-  // be base64-encoded (binary bodies) — `encoding` says which.
+  // Body text, in full (no truncation — the platform bounds payload size,
+  // not this node). HAR spec allows this to be base64-encoded (binary
+  // bodies) — `encoding` says which. `text_truncated` is reserved for wire
+  // compatibility and always false.
   string text = 4;
   bool text_truncated = 5;
   // "base64" when `text` is base64-encoded binary content, else "".
@@ -244,6 +248,8 @@ message ListEntriesResult {
   string error = 2;
   repeated EntrySummary entries = 3;
   int32 count = 4;
+  // Reserved for wire compatibility; always false (no per-node
+  // entry-count bound is imposed — the platform bounds resource use).
   bool truncated = 5;
 }
 
@@ -258,6 +264,8 @@ message ExtractRequestsResult {
   string error = 2;
   repeated RequestInfo requests = 3;
   int32 count = 4;
+  // Reserved for wire compatibility; always false (no per-node
+  // entry-count bound is imposed — the platform bounds resource use).
   bool truncated = 5;
 }
 
@@ -266,6 +274,8 @@ message ExtractResponsesResult {
   string error = 2;
   repeated ResponseInfo responses = 3;
   int32 count = 4;
+  // Reserved for wire compatibility; always false (no per-node
+  // entry-count bound is imposed — the platform bounds resource use).
   bool truncated = 5;
 }
 
@@ -281,6 +291,8 @@ message ExtractTimingsResult {
   string error = 2;
   repeated EntryTimings timings = 3;
   int32 count = 4;
+  // Reserved for wire compatibility; always false (no per-node
+  // entry-count bound is imposed — the platform bounds resource use).
   bool truncated = 5;
 }
 
@@ -302,8 +314,8 @@ message ExtractDomainsResult {
   string error = 2;
   repeated DomainCount domains = 3;
   int32 count = 4;
-  // True when the document has more entries than were scanned to build this
-  // inventory (a per-node input-size bound).
+  // Reserved for wire compatibility; always false (no per-node
+  // entry-count bound is imposed — the platform bounds resource use).
   bool truncated = 5;
 }
 
@@ -318,8 +330,8 @@ message ExtractUrlsResult {
   string error = 2;
   repeated EntryUrl urls = 3;
   int32 count = 4;
-  // True when the document has more entries than were scanned (a per-node
-  // input-size bound).
+  // Reserved for wire compatibility; always false (no per-node
+  // entry-count bound is imposed — the platform bounds resource use).
   bool truncated = 5;
 }
 
@@ -333,9 +345,8 @@ message ComputeStatsResult {
   repeated CountEntry count_by_mime_type = 7;
   // The 3 slowest entries by entry.time, descending.
   repeated EntrySummary slowest = 8;
-  // True when the document has more entries than were scanned to compute
-  // these aggregates (a per-node input-size bound), so the totals reflect
-  // only the first entries scanned.
+  // Reserved for wire compatibility; always false (no per-node
+  // entry-count bound is imposed — the platform bounds resource use).
   bool truncated = 9;
 }
 
@@ -351,8 +362,8 @@ message ExtractCookiesResult {
   string error = 2;
   repeated EntryCookie cookies = 3;
   int32 count = 4;
-  // True when the document has more entries than were scanned (a per-node
-  // input-size bound).
+  // Reserved for wire compatibility; always false (no per-node
+  // entry-count bound is imposed — the platform bounds resource use).
   bool truncated = 5;
 }
 
@@ -369,8 +380,8 @@ message ExtractHeaderValuesResult {
   string error = 2;
   repeated HeaderValueEntry values = 3;
   int32 count = 4;
-  // True when the document has more entries than were scanned (a per-node
-  // input-size bound).
+  // Reserved for wire compatibility; always false (no per-node
+  // entry-count bound is imposed — the platform bounds resource use).
   bool truncated = 5;
 }
 
@@ -379,9 +390,10 @@ message DetectHeaderPresenceResult {
   string error = 2;
   repeated EntrySummary matches = 3;
   int32 count = 4;
-  // Number of entries actually scanned (may be less than the document's
-  // true entry count under the per-node input-size bound; see `truncated`).
+  // Number of entries scanned (always the document's full entry count —
+  // no per-node input-size bound is imposed).
   int32 total_entries = 5;
+  // Reserved for wire compatibility; always false.
   bool truncated = 6;
 }
 

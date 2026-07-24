@@ -2,7 +2,6 @@ import { HarDocument } from '../gen/messages_pb';
 import { extractUrls } from './extract_urls';
 import { testContext } from './testdata/testContext';
 import { VALID_HAR, VALID_HAR_ENTRY_COUNT, harWithNEntries } from './testdata/fixtures';
-import { MAX_ENTRIES_LIST } from './lib/limits';
 
 describe('ExtractUrls', () => {
   it('extracts every request URL in entry order, correlated by index, not deduplicated', () => {
@@ -18,12 +17,13 @@ describe('ExtractUrls', () => {
     expect(urls[3].getUrl()).toBe('https://api.example.com/submit');
   });
 
-  it('truncates and flags a document with more entries than the cap (regression: this node used to silently drop entries beyond the cap with no signal)', () => {
+  it('extracts every URL with no truncation, even well beyond the old cap (no payload/result-count limit)', () => {
+    const n = 3005;
     const input = new HarDocument();
-    input.setText(harWithNEntries(MAX_ENTRIES_LIST + 5));
+    input.setText(harWithNEntries(n));
     const result = extractUrls(testContext, input);
     expect(result.getOk()).toBe(true);
-    expect(result.getTruncated()).toBe(true);
-    expect(result.getCount()).toBe(MAX_ENTRIES_LIST);
+    expect(result.getTruncated()).toBe(false);
+    expect(result.getCount()).toBe(n);
   });
 });

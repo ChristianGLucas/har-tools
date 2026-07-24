@@ -1,7 +1,6 @@
 import { HeaderValueRequest, ExtractHeaderValuesResult, HeaderValueEntry } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
 import { parseHar, parseDirection, findHeaderOccurrences } from './lib/harParse';
-import { MAX_ENTRIES_LIST } from './lib/limits';
 
 /**
  * Extract every value of one named header (case-insensitive, e.g.
@@ -33,11 +32,9 @@ export function extractHeaderValues(ax: AxiomContext, input: HeaderValueRequest)
     return out;
   }
 
-  const truncated = parsed.entriesRaw.length > MAX_ENTRIES_LIST;
-  const slice = parsed.entriesRaw.slice(0, MAX_ENTRIES_LIST);
   const headerNameLower = headerName.toLowerCase();
   const values: HeaderValueEntry[] = [];
-  slice.forEach((eRaw, i) => {
+  parsed.entriesRaw.forEach((eRaw, i) => {
     for (const occ of findHeaderOccurrences(eRaw, headerNameLower, dir)) {
       const m = new HeaderValueEntry();
       m.setIndex(i);
@@ -49,6 +46,5 @@ export function extractHeaderValues(ax: AxiomContext, input: HeaderValueRequest)
 
   out.setValuesList(values);
   out.setCount(values.length);
-  out.setTruncated(truncated);
   return out;
 }

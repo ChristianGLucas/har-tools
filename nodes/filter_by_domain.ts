@@ -2,7 +2,6 @@ import { DomainFilterRequest, ListEntriesResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
 import { parseHar, buildFilterRows } from './lib/harParse';
 import { entrySummaryToMsg } from './lib/mappers';
-import { MAX_ENTRIES_LIST } from './lib/limits';
 
 /**
  * Return only entries whose request URL host equals domain
@@ -27,10 +26,9 @@ export function filterByDomain(ax: AxiomContext, input: DomainFilterRequest): Li
     return out;
   }
 
-  const { rows, truncated } = buildFilterRows(parsed.entriesRaw, MAX_ENTRIES_LIST);
+  const rows = buildFilterRows(parsed.entriesRaw);
   const matched = rows.filter((r) => r.host === domain).map((r) => entrySummaryToMsg(r.summary));
   out.setEntriesList(matched);
   out.setCount(matched.length);
-  out.setTruncated(truncated);
   return out;
 }

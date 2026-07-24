@@ -2,7 +2,6 @@ import { HarDocument, ComputeStatsResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
 import { parseHar, toEntrySummary } from './lib/harParse';
 import { countEntry, entrySummaryToMsg } from './lib/mappers';
-import { MAX_ENTRIES_LIST } from './lib/limits';
 
 function str(v: unknown): string {
   return typeof v === 'string' ? v : '';
@@ -42,16 +41,13 @@ export function computeStats(ax: AxiomContext, input: HarDocument): ComputeStats
   out.setError(parsed.error);
   if (!parsed.ok) return out;
 
-  const truncated = parsed.entriesRaw.length > MAX_ENTRIES_LIST;
-  const slice = parsed.entriesRaw.slice(0, MAX_ENTRIES_LIST);
-
   let totalTransferSize = 0;
   let totalTime = 0;
   const byStatusClass = new Map<string, number>();
   const byMimeType = new Map<string, number>();
-  const summaries = slice.map((eRaw, i) => toEntrySummary(eRaw, i));
+  const summaries = parsed.entriesRaw.map((eRaw, i) => toEntrySummary(eRaw, i));
 
-  slice.forEach((eRaw, i) => {
+  parsed.entriesRaw.forEach((eRaw, i) => {
     const e = obj(eRaw);
     const response = obj(e.response);
     const content = obj(response.content);
@@ -75,6 +71,5 @@ export function computeStats(ax: AxiomContext, input: HarDocument): ComputeStats
   out.setCountByStatusClassList(toSortedEntries(byStatusClass));
   out.setCountByMimeTypeList(toSortedEntries(byMimeType));
   out.setSlowestList(slowest.map(entrySummaryToMsg));
-  out.setTruncated(truncated);
   return out;
 }

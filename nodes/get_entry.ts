@@ -2,7 +2,6 @@ import { EntryIndexRequest, GetEntryResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
 import { parseHar, toFullEntry } from './lib/harParse';
 import { fullEntryToMsg } from './lib/mappers';
-import { MAX_BODY_TEXT_CHARS } from './lib/limits';
 
 /**
  * Expand a single entry, by its zero-based index into log.entries, into its
@@ -27,6 +26,6 @@ export function getEntry(ax: AxiomContext, input: EntryIndexRequest): GetEntryRe
     return out;
   }
 
-  out.setEntry(fullEntryToMsg(toFullEntry(parsed.entriesRaw[index], index, MAX_BODY_TEXT_CHARS)));
+  out.setEntry(fullEntryToMsg(toFullEntry(parsed.entriesRaw[index], index)));
   return out;
 }

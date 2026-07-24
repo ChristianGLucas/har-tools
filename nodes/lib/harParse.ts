@@ -7,7 +7,7 @@
 // randomness, stable ordering.
 
 import { maxJsonNestingDepth, safeJsonParse, isPlainObject } from './jsonSafe';
-import { MAX_TEXT_BYTES, MAX_NESTING_DEPTH, byteLength, MAX_BODY_TEXT_CHARS } from './limits';
+import { MAX_NESTING_DEPTH } from './limits';
 import {
   ParsedHar,
   failedParse,
@@ -59,17 +59,14 @@ export interface GuardedJson {
   value: unknown;
 }
 
-// Input-size/JSON-syntax guard only — deliberately does NOT check HAR
-// structure (no "log"/"entries" requirement), because ValidateHar needs the
-// raw parsed value even when that structure is exactly what's missing/wrong
-// (a structural violation is reported as `valid: false` + issues, not a hard
+// JSON-syntax guard only — deliberately does NOT check HAR structure (no
+// "log"/"entries" requirement), because ValidateHar needs the raw parsed
+// value even when that structure is exactly what's missing/wrong (a
+// structural violation is reported as `valid: false` + issues, not a hard
 // parse failure). Every other node builds on top of this via parseHar below.
 export function parseJsonGuarded(text: string): GuardedJson {
   if (typeof text !== 'string' || text.length === 0) {
     return { ok: false, error: 'empty input: expected HAR JSON text', value: undefined };
-  }
-  if (byteLength(text) > MAX_TEXT_BYTES) {
-    return { ok: false, error: `input exceeds byte limit (${MAX_TEXT_BYTES} bytes)`, value: undefined };
   }
   if (maxJsonNestingDepth(text, MAX_NESTING_DEPTH) === -1) {
     return { ok: false, error: `input exceeds nesting depth limit (${MAX_NESTING_DEPTH})`, value: undefined };
@@ -134,36 +131,29 @@ export function toCookies(v: unknown): NCookie[] {
   return arr(v).map(toCookie);
 }
 
-function truncateText(text: string, maxChars: number): { text: string; truncated: boolean } {
-  if (text.length <= maxChars) return { text, truncated: false };
-  return { text: text.slice(0, maxChars), truncated: true };
-}
-
 function toPostDataParam(p: unknown): NPostDataParam {
   const o = obj(p);
   return { name: str(o.name), value: str(o.value), fileName: str(o.fileName), contentType: str(o.contentType) };
 }
 
-function toPostData(v: unknown, maxTextChars: number): NPostData | null {
+function toPostData(v: unknown): NPostData | null {
   if (!isPlainObject(v)) return null;
-  const { text, truncated } = truncateText(str(v.text), maxTextChars);
   return {
     mimeType: str(v.mimeType),
-    text,
-    textTruncated: truncated,
+    text: str(v.text),
+    textTruncated: false,
     params: arr(v.params).map(toPostDataParam),
   };
 }
 
-function toContent(v: unknown, maxTextChars: number): NContent {
+function toContent(v: unknown): NContent {
   const o = obj(v);
-  const { text, truncated } = truncateText(str(o.text), maxTextChars);
   return {
     size: num(o.size, -1),
     compression: num(o.compression, 0),
     mimeType: str(o.mimeType),
-    text,
-    textTruncated: truncated,
+    text: str(o.text),
+    textTruncated: false,
     encoding: str(o.encoding),
   };
 }
@@ -182,7 +172,7 @@ export function toEntrySummary(eRaw: unknown, index: number): NEntrySummary {
   };
 }
 
-export function toRequestInfo(eRaw: unknown, index: number, maxTextChars: number): NRequest {
+export function toRequestInfo(eRaw: unknown, index: number): NRequest {
   const e = obj(eRaw);
   const r = obj(e.request);
   const hasPostData = isPlainObject(r.postData);
@@ -194,14 +184,14 @@ export function toRequestInfo(eRaw: unknown, index: number, maxTextChars: number
     headers: toHeaders(r.headers),
     queryString: toQueryParams(r.queryString),
     cookies: toCookies(r.cookies),
-    postData: hasPostData ? toPostData(r.postData, maxTextChars) : null,
+    postData: hasPostData ? toPostData(r.postData) : null,
     hasPostData,
     headersSize: num(r.headersSize, -1),
     bodySize: num(r.bodySize, -1),
   };
 }
 
-export function toResponseInfo(eRaw: unknown, index: number, maxTextChars: number): NResponse {
+export function toResponseInfo(eRaw: unknown, index: number): NResponse {
   const e = obj(eRaw);
   const resp = obj(e.response);
   return {
@@ -211,7 +201,7 @@ export function toResponseInfo(eRaw: unknown, index: number, maxTextChars: numbe
     httpVersion: str(resp.httpVersion),
     headers: toHeaders(resp.headers),
     cookies: toCookies(resp.cookies),
-    content: toContent(resp.content, maxTextChars),
+    content: toContent(resp.content),
     redirectURL: str(resp.redirectURL),
     headersSize: num(resp.headersSize, -1),
     bodySize: num(resp.bodySize, -1),
@@ -232,15 +222,15 @@ export function toTimings(eRaw: unknown): NTimings {
   };
 }
 
-export function toFullEntry(eRaw: unknown, index: number, maxTextChars: number): NFullEntry {
+export function toFullEntry(eRaw: unknown, index: number): NFullEntry {
   const e = obj(eRaw);
   return {
     index,
     pageref: str(e.pageref),
     startedDateTime: str(e.startedDateTime),
     time: num(e.time, 0),
-    request: toRequestInfo(eRaw, index, maxTextChars),
-    response: toResponseInfo(eRaw, index, maxTextChars),
+    request: toRequestInfo(eRaw, index),
+    response: toResponseInfo(eRaw, index),
     timings: toTimings(eRaw),
     serverIPAddress: str(e.serverIPAddress),
     connection: str(e.connection),
@@ -285,17 +275,14 @@ export interface FilterRow {
   host: string;
 }
 
-export function buildFilterRows(entriesRaw: unknown[], cap: number): { rows: FilterRow[]; truncated: boolean } {
-  const truncated = entriesRaw.length > cap;
-  const slice = entriesRaw.slice(0, cap);
-  const rows = slice.map((eRaw, i) => {
+export function buildFilterRows(entriesRaw: unknown[]): FilterRow[] {
+  return entriesRaw.map((eRaw, i) => {
     const summary = toEntrySummary(eRaw, i);
     const e = obj(eRaw);
     const response = obj(e.response);
     const content = obj(response.content);
     return { summary, mimeType: str(content.mimeType), host: hostOf(summary.url) };
   });
-  return { rows, truncated };
 }
 
 export interface HeaderOccurrence {

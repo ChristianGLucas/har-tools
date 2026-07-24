@@ -2,7 +2,6 @@ import { MimeTypeFilterRequest, ListEntriesResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
 import { parseHar, buildFilterRows } from './lib/harParse';
 import { entrySummaryToMsg } from './lib/mappers';
-import { MAX_ENTRIES_LIST } from './lib/limits';
 
 /**
  * Return only entries whose response content.mimeType matches mime_type — a
@@ -29,7 +28,7 @@ export function filterByMimeType(ax: AxiomContext, input: MimeTypeFilterRequest)
   const isFamily = rawFilter.endsWith('/');
   const filter = rawFilter.toLowerCase();
 
-  const { rows, truncated } = buildFilterRows(parsed.entriesRaw, MAX_ENTRIES_LIST);
+  const rows = buildFilterRows(parsed.entriesRaw);
   const matched = rows
     .filter((r) => {
       const mt = r.mimeType.toLowerCase();
@@ -38,6 +37,5 @@ export function filterByMimeType(ax: AxiomContext, input: MimeTypeFilterRequest)
     .map((r) => entrySummaryToMsg(r.summary));
   out.setEntriesList(matched);
   out.setCount(matched.length);
-  out.setTruncated(truncated);
   return out;
 }
