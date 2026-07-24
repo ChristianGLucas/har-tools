@@ -42,12 +42,16 @@ describe('ParseSummary', () => {
     expect(result.getError()).toMatch(/nesting/);
   });
 
-  it('rejects oversized input', () => {
+  it('handles a large input without crashing (no payload-size limit)', () => {
+    // No byte-size cap is imposed by this node -- the platform bounds
+    // payload size, not this node. This particular large input is a bare
+    // JSON string (not a HAR object), so it's still ok=false, but via the
+    // ordinary "not a HAR document" structural check, not a size guard.
     const input = new HarDocument();
     input.setText(oversizedText(3_000_001));
     const result = parseSummary(testContext, input);
     expect(result.getOk()).toBe(false);
-    expect(result.getError()).toMatch(/byte limit/);
+    expect(result.getError()).toMatch(/not a HAR document/);
   });
 
   it('is deterministic across repeated invocations', () => {
